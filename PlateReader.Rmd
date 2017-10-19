@@ -9,6 +9,8 @@ install.packages("readxl")
 install.packages("dyplyr")
 library(readxl)
 library(dplyr)
+library(tidyr)
+library(ggplot2)
 library(data.table)
 ```
 
@@ -116,6 +118,15 @@ final <- errors %>% select("Layout", starts_with("vis"), starts_with("e"))
 ```
 Make a plot
 ```{r}
+final_gat <- final %>% gather(key, value, -Layout) %>%
+  extract(key, c("rep", "temp"), "([a-z]+)([0-9]+)") %>%
+  spread(rep, value)
 
+
+ggplot(final_gat, aes(x = temp, y = vis, group = Layout, col = Layout)) +
+  geom_line() +
+  geom_point() +
+  geom_errorbar(aes(ymin=vis-e,ymax=vis+e),width=.2) +
+  theme_bw()
 ```
 
