@@ -16,7 +16,7 @@ library(data.table)
 
 Read the data - You may add "numeric" to col_types - depends how temp you have
 ```{r}
-data <- read_excel("DPhPC_DCVJ_vesicles.xlsx", col_types = c("text", "text", "numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric"))
+data <- read_excel("DaneDlaPaniMadzi.xlsx", col_types = c("text", "text", "numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric"))
 names(data) <- gsub(" ", "_", names(data))
 data
 ```
@@ -51,12 +51,12 @@ data_mean <- data_stat %>% select(Layout, ends_with("_mean"))
 
 data_mean <- data_mean %>% 
   group_by(Layout) %>% 
-  mutate(Q18=.$FL_18_mean[.$Layout == "ST1_1"]/FL_18_mean*Abs_18_mean/.$Abs_18_mean[.$Layout == "ST1_1"],
-         Q20=.$FL_20_mean[.$Layout == "ST1_1"]/FL_20_mean*Abs_18_mean/.$Abs_20_mean[.$Layout == "ST1_1"],
-         Q25=.$FL_25_mean[.$Layout == "ST1_1"]/FL_25_mean*Abs_25_mean/.$Abs_25_mean[.$Layout == "ST1_1"],
-         Q30=.$FL_30_mean[.$Layout == "ST1_1"]/FL_30_mean*Abs_30_mean/.$Abs_30_mean[.$Layout == "ST1_1"],
-         Q37=.$FL_37_mean[.$Layout == "ST1_1"]/FL_37_mean*Abs_37_mean/.$Abs_37_mean[.$Layout == "ST1_1"],
-         Q42=.$FL_42_mean[.$Layout == "ST1_1"]/FL_42_mean*Abs_42_mean/.$Abs_42_mean[.$Layout == "ST1_1"]
+  mutate(Q18=FL_18_mean/.$FL_18_mean[.$Layout == "ST1_1"]*.$Abs_18_mean[.$Layout == "ST1_1"]/Abs_18_mean,
+         #Q20=FL_20_mean/.$FL_20_mean[.$Layout == "ST1_1"]*.$Abs_20_mean[.$Layout == "ST1_1"]/Abs_20_mean,
+         Q25=FL_25_mean/.$FL_25_mean[.$Layout == "ST1_1"]*.$Abs_25_mean[.$Layout == "ST1_1"]/Abs_25_mean,
+         #Q30=FL_30_mean/.$FL_30_mean[.$Layout == "ST1_1"]*.$Abs_30_mean[.$Layout == "ST1_1"]/Abs_30_mean,
+         Q37=FL_37_mean/.$FL_37_mean[.$Layout == "ST1_1"]*.$Abs_37_mean[.$Layout == "ST1_1"]/Abs_37_mean,
+         Q42=FL_42_mean/.$FL_42_mean[.$Layout == "ST1_1"]*.$Abs_42_mean[.$Layout == "ST1_1"]/Abs_42_mean
          
          )
 
@@ -78,9 +78,9 @@ t42<- 42
 
 QY_t <- q %>% 
   mutate(QY_T18= 0.0002*(2649.0219*t18^(-1.5448))^0.6019 ,
-         QY_T20=0.0002*(2649.0219*t20^(-1.5448))^0.6019,
+         #QY_T20=0.0002*(2649.0219*t20^(-1.5448))^0.6019,
          QY_T25=0.0002*(2649.0219*t25^(-1.5448))^0.6019,
-         QY_T30=0.0002*(2649.0219*t30^(-1.5448))^0.6019,
+         #QY_T30=0.0002*(2649.0219*t30^(-1.5448))^0.6019,
          QY_T37=0.0002*(2649.0219*t37^(-1.5448))^0.6019,
          QY_T42=0.0002*(2649.0219*t42^(-1.5448))^0.6019
          
@@ -89,9 +89,9 @@ QY_t <- q %>%
 vis <- QY_t %>% 
   group_by(Layout) %>% 
   mutate(vis18=((Q18*QY_T18*c)/0.0002)^(1/0.6019),
-         vis20=((Q20*QY_T20*c)/0.0002)^(1/0.6019),
+         #vis20=((Q20*QY_T20*c)/0.0002)^(1/0.6019),
          vis25=((Q25*QY_T25*c)/0.0002)^(1/0.6019),
-         vis30=((Q30*QY_T30*c)/0.0002)^(1/0.6019),
+         #vis30=((Q30*QY_T30*c)/0.0002)^(1/0.6019),
          vis37=((Q37*QY_T37*c)/0.0002)^(1/0.6019),
          vis42=((Q42*QY_T42*c)/0.0002)^(1/0.6019)
          
@@ -105,9 +105,9 @@ errors<- merge(vis, data_stat)
 errors <- errors %>%
   group_by(Layout) %>%
   mutate(e18 = sqrt((.$FL_18_sd[.$Layout == "ST1_1"]/.$FL_18_mean[.$Layout == "ST1_1"])^2+(.$Abs_18_sd[.$Layout == "ST1_1"]/.$Abs_18_mean[.$Layout == "ST1_1"])^2+(FL_18_sd/FL_18_mean)^2+(Abs_18_sd/Abs_18_mean)^2)*vis18,
-         e20 = sqrt((.$FL_20_sd[.$Layout == "ST1_1"]/.$FL_20_mean[.$Layout == "ST1_1"])^2+(.$Abs_20_sd[.$Layout == "ST1_1"]/.$Abs_20_mean[.$Layout == "ST1_1"])^2+(FL_20_sd/FL_20_mean)^2+(Abs_20_sd/Abs_20_mean)^2)*vis20,
+         #e20 = sqrt((.$FL_20_sd[.$Layout == "ST1_1"]/.$FL_20_mean[.$Layout == "ST1_1"])^2+(.$Abs_20_sd[.$Layout == "ST1_1"]/.$Abs_20_mean[.$Layout == "ST1_1"])^2+(FL_20_sd/FL_20_mean)^2+(Abs_20_sd/Abs_20_mean)^2)*vis20,
          e25 = sqrt((.$FL_25_sd[.$Layout == "ST1_1"]/.$FL_25_mean[.$Layout == "ST1_1"])^2+(.$Abs_25_sd[.$Layout == "ST1_1"]/.$Abs_25_mean[.$Layout == "ST1_1"])^2+(FL_25_sd/FL_25_mean)^2+(Abs_25_sd/Abs_25_mean)^2)*vis25,
-         e30 = sqrt((.$FL_30_sd[.$Layout == "ST1_1"]/.$FL_30_mean[.$Layout == "ST1_1"])^2+(.$Abs_30_sd[.$Layout == "ST1_1"]/.$Abs_30_mean[.$Layout == "ST1_1"])^2+(FL_30_sd/FL_30_mean)^2+(Abs_30_sd/Abs_30_mean)^2)*vis30,
+         #e30 = sqrt((.$FL_30_sd[.$Layout == "ST1_1"]/.$FL_30_mean[.$Layout == "ST1_1"])^2+(.$Abs_30_sd[.$Layout == "ST1_1"]/.$Abs_30_mean[.$Layout == "ST1_1"])^2+(FL_30_sd/FL_30_mean)^2+(Abs_30_sd/Abs_30_mean)^2)*vis30,
          e37 = sqrt((.$FL_37_sd[.$Layout == "ST1_1"]/.$FL_37_mean[.$Layout == "ST1_1"])^2+(.$Abs_37_sd[.$Layout == "ST1_1"]/.$Abs_37_mean[.$Layout == "ST1_1"])^2+(FL_37_sd/FL_37_mean)^2+(Abs_37_sd/Abs_37_mean)^2)*vis37,
          e42 = sqrt((.$FL_42_sd[.$Layout == "ST1_1"]/.$FL_42_mean[.$Layout == "ST1_1"])^2+(.$Abs_42_sd[.$Layout == "ST1_1"]/.$Abs_42_mean[.$Layout == "ST1_1"])^2+(FL_42_sd/FL_42_mean)^2+(Abs_42_sd/Abs_42_mean)^2)*vis42
          
@@ -115,6 +115,8 @@ errors <- errors %>%
 
 
 final <- errors %>% select("Layout", starts_with("vis"), starts_with("e"))
+final <- final %>% filter(!Layout == "ST1_1")
+final
 ```
 Make a plot
 ```{r}
@@ -127,6 +129,7 @@ ggplot(final_gat, aes(x = temp, y = vis, group = Layout, col = Layout)) +
   geom_line() +
   geom_point() +
   geom_errorbar(aes(ymin=vis-e,ymax=vis+e),width=.2) +
+  #scale_y_log10() +
   theme_bw()
 ```
 
