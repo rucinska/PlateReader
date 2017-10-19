@@ -1,0 +1,94 @@
+---
+title: "Plate Reader"
+
+---
+
+Install the library
+```{r}
+install.packages("readxl")
+install.packages("dyplyr")
+library(readxl)
+library(dplyr)
+```
+
+Read the data - You may add "numeric" to col_types - depends how temp you have
+```{r}
+data <- read_excel("DPhPC_DCVJ_vesicles.xlsx", col_types = c("text", "text", "numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric"))
+names(data) <- gsub(" ", "_", names(data))
+data
+```
+We dont need the first row - delete
+```{r}
+data <- data[-1,]
+#cols = c( 3, 4, 5,6,7,8,9,10) 
+#data[,cols] = apply(data[,cols], 2, function(x) as.numeric(as.character(x)))
+data
+```
+
+```{r}
+data_diff <-  data %>%
+  group_by(grp = (row_number() - 1) %/% 2) %>%
+  summarise_all(funs(ifelse(is.numeric(.), first(.) - last(.), first(.)))) %>%
+  ungroup() %>%
+  select(-grp)
+
+data_diff
+```
+
+```{r}
+data_diff <- select(data_diff, - Well_positions)
+data_mean <- data_diff %>% 
+            group_by(Layout) %>%
+            summarise_each(funs(mean(.), sd(.)))
+data_mean
+```
+Take only mean data
+```{r}
+data_mean <- data_mean %>% select(Layout, ends_with("_mean"))
+
+data_mean <- data_mean %>% 
+  group_by(Layout) %>% 
+  mutate(Q18=.$FL_18_mean[.$Layout == "ST1_1"]/FL_18_mean*Abs_18_mean/.$Abs_18_mean[.$Layout == "ST1_1"],
+         Q20=.$FL_20_mean[.$Layout == "ST1_1"]/FL_20_mean*Abs_18_mean/.$Abs_20_mean[.$Layout == "ST1_1"],
+         Q25=.$FL_25_mean[.$Layout == "ST1_1"]/FL_25_mean*Abs_25_mean/.$Abs_25_mean[.$Layout == "ST1_1"],
+         Q30=.$FL_30_mean[.$Layout == "ST1_1"]/FL_30_mean*Abs_30_mean/.$Abs_30_mean[.$Layout == "ST1_1"],
+         Q37=.$FL_37_mean[.$Layout == "ST1_1"]/FL_37_mean*Abs_37_mean/.$Abs_37_mean[.$Layout == "ST1_1"],
+         Q42=.$FL_42_mean[.$Layout == "ST1_1"]/FL_42_mean*Abs_42_mean/.$Abs_42_mean[.$Layout == "ST1_1"]
+         
+         )
+
+
+```
+
+
+QY calculated
+
+```{r}
+q <- data_mean %>% select(Layout, starts_with("Q"))
+
+t18 <- 18
+t20 <- 20
+t25 <- 25
+t30 <- 30
+t37 <- 37
+t42<- 42
+
+vis <- q %>% 
+  group_by(Layout) %>% 
+  mutate(vis18= (0.0002*(2649.0219*t18^-15448)^0.6019/0.0002)^(1/0.6019) ,
+         vis20=(0.0002*(2649.0219*t20^-15448)^0.6019/0.0002)^(1/0.6019),
+         vis25=(0.0002*(2649.0219*t25^-15448)^0.6019/0.0002)^(1/0.6019),
+         vis30=(0.0002*(2649.0219*t30^-15448)^0.6019/0.0002)^(1/0.6019),
+         vis37=(0.0002*(2649.0219*t37^-15448)^0.6019/0.0002)^(1/0.6019),
+         vis42=(0.0002*(2649.0219*t42^-15448)^0.6019/0.0002)^(1/0.6019)
+         
+         )
+
+vis
+
+```
+
+```{r}
+
+```
+
