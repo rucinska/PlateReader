@@ -9,6 +9,7 @@ install.packages("readxl")
 install.packages("dyplyr")
 library(readxl)
 library(dplyr)
+library(data.table)
 ```
 
 Read the data - You may add "numeric" to col_types - depends how temp you have
@@ -37,14 +38,14 @@ data_diff
 
 ```{r}
 data_diff <- select(data_diff, - Well_positions)
-data_mean <- data_diff %>% 
+data_stat <- data_diff %>% 
             group_by(Layout) %>%
-            summarise_each(funs(mean(.), sd(.)))
-data_mean
+            summarise_each(funs(mean(.), sd(.))) %>% ungroup()
+data_stat
 ```
 Take only mean data
 ```{r}
-data_mean <- data_mean %>% select(Layout, ends_with("_mean"))
+data_mean <- data_stat %>% select(Layout, ends_with("_mean"))
 
 data_mean <- data_mean %>% 
   group_by(Layout) %>% 
@@ -57,7 +58,7 @@ data_mean <- data_mean %>%
          
          )
 
-
+data_mean
 ```
 
 
@@ -65,7 +66,7 @@ QY calculated
 
 ```{r}
 q <- data_mean %>% select(Layout, starts_with("Q"))
-
+c <- (1.3325^2)/(1.4385^2)
 t18 <- 18
 t20 <- 20
 t25 <- 25
@@ -73,21 +74,47 @@ t30 <- 30
 t37 <- 37
 t42<- 42
 
-vis <- q %>% 
-  group_by(Layout) %>% 
-  mutate(vis18= (0.0002*(2649.0219*t18^-15448)^0.6019/0.0002)^(1/0.6019) ,
-         vis20=(0.0002*(2649.0219*t20^-15448)^0.6019/0.0002)^(1/0.6019),
-         vis25=(0.0002*(2649.0219*t25^-15448)^0.6019/0.0002)^(1/0.6019),
-         vis30=(0.0002*(2649.0219*t30^-15448)^0.6019/0.0002)^(1/0.6019),
-         vis37=(0.0002*(2649.0219*t37^-15448)^0.6019/0.0002)^(1/0.6019),
-         vis42=(0.0002*(2649.0219*t42^-15448)^0.6019/0.0002)^(1/0.6019)
+QY_t <- q %>% 
+  mutate(QY_T18= 0.0002*(2649.0219*t18^(-1.5448))^0.6019 ,
+         QY_T20=0.0002*(2649.0219*t20^(-1.5448))^0.6019,
+         QY_T25=0.0002*(2649.0219*t25^(-1.5448))^0.6019,
+         QY_T30=0.0002*(2649.0219*t30^(-1.5448))^0.6019,
+         QY_T37=0.0002*(2649.0219*t37^(-1.5448))^0.6019,
+         QY_T42=0.0002*(2649.0219*t42^(-1.5448))^0.6019
          
          )
 
+vis <- QY_t %>% 
+  group_by(Layout) %>% 
+  mutate(vis18=((Q18*QY_T18*c)/0.0002)^(1/0.6019),
+         vis20=((Q20*QY_T20*c)/0.0002)^(1/0.6019),
+         vis25=((Q25*QY_T25*c)/0.0002)^(1/0.6019),
+         vis30=((Q30*QY_T30*c)/0.0002)^(1/0.6019),
+         vis37=((Q37*QY_T37*c)/0.0002)^(1/0.6019),
+         vis42=((Q42*QY_T42*c)/0.0002)^(1/0.6019)
+         
+         ) %>% ungroup()
 vis
-
 ```
+Calculate an error
+```{r}
+errors<- merge(vis, data_stat)
 
+errors <- errors %>%
+  group_by(Layout) %>%
+  mutate(e18 = sqrt((.$FL_18_sd[.$Layout == "ST1_1"]/.$FL_18_mean[.$Layout == "ST1_1"])^2+(.$Abs_18_sd[.$Layout == "ST1_1"]/.$Abs_18_mean[.$Layout == "ST1_1"])^2+(FL_18_sd/FL_18_mean)^2+(Abs_18_sd/Abs_18_mean)^2)*vis18,
+         e20 = sqrt((.$FL_20_sd[.$Layout == "ST1_1"]/.$FL_20_mean[.$Layout == "ST1_1"])^2+(.$Abs_20_sd[.$Layout == "ST1_1"]/.$Abs_20_mean[.$Layout == "ST1_1"])^2+(FL_20_sd/FL_20_mean)^2+(Abs_20_sd/Abs_20_mean)^2)*vis20,
+         e25 = sqrt((.$FL_25_sd[.$Layout == "ST1_1"]/.$FL_25_mean[.$Layout == "ST1_1"])^2+(.$Abs_25_sd[.$Layout == "ST1_1"]/.$Abs_25_mean[.$Layout == "ST1_1"])^2+(FL_25_sd/FL_25_mean)^2+(Abs_25_sd/Abs_25_mean)^2)*vis25,
+         e30 = sqrt((.$FL_30_sd[.$Layout == "ST1_1"]/.$FL_30_mean[.$Layout == "ST1_1"])^2+(.$Abs_30_sd[.$Layout == "ST1_1"]/.$Abs_30_mean[.$Layout == "ST1_1"])^2+(FL_30_sd/FL_30_mean)^2+(Abs_30_sd/Abs_30_mean)^2)*vis30,
+         e37 = sqrt((.$FL_37_sd[.$Layout == "ST1_1"]/.$FL_37_mean[.$Layout == "ST1_1"])^2+(.$Abs_37_sd[.$Layout == "ST1_1"]/.$Abs_37_mean[.$Layout == "ST1_1"])^2+(FL_37_sd/FL_37_mean)^2+(Abs_37_sd/Abs_37_mean)^2)*vis37,
+         e42 = sqrt((.$FL_42_sd[.$Layout == "ST1_1"]/.$FL_42_mean[.$Layout == "ST1_1"])^2+(.$Abs_42_sd[.$Layout == "ST1_1"]/.$Abs_42_mean[.$Layout == "ST1_1"])^2+(FL_42_sd/FL_42_mean)^2+(Abs_42_sd/Abs_42_mean)^2)*vis42
+         
+         )
+
+
+final <- errors %>% select("Layout", starts_with("vis"), starts_with("e"))
+```
+Make a plot
 ```{r}
 
 ```
