@@ -7,13 +7,9 @@ Install the library
 ```{r}
 #install.packages("readxl")
 #install.packages("dyplyr")
-#install.packages("stat_smooth")
 library(readxl)
 library(dplyr)
-library(tidyr)
-library(ggplot2)
-library(data.table)
-library(outliers)
+library(plyr) 
 
 ```
 
@@ -32,144 +28,101 @@ data
 ```
 
 ```{r}
+#data_s <- filter(data, grepl("S", Layout))
+#data_b <-filter(data, grepl("B", Layout))
+
 data_diff <-  data %>%
   group_by(grp = (row_number() - 1) %/% 2) %>%
   summarise_all(funs(ifelse(is.numeric(.), first(.) - last(.), first(.)))) %>%
   ungroup() %>%
   select(-grp)
-data_diff <- select(data_diff, - Well_positions)
+
 data_diff
 ```
-Grubbs test
-https://stackoverflow.com/questions/22837099/how-to-repeat-the-grubbs-test-and-flag-the-outliers
-```{r}
-grubbs.flag <- function(vector) {
-  outliers <- NULL
-  test <- vector
-  grubbs.result <- grubbs.test(test)
-  pv <- grubbs.result$p.value
-  # throw an error if there are too few values for the Grubb's test
-  if (length(test) < 3 ) stop("Grubb's test requires > 2 input values")
-  na.vect <- test
-  while(pv < 0.05) {
-    outliers <- c(outliers,as.numeric(strsplit(grubbs.result$alternative," ")[[1]][3]))
-    test <- vector[!vector %in% outliers]
-    # stop if all but two values are flagged as outliers
-    if (length(test) < 3 ) {
-      warning("All but two values flagged as outliers")
-      break
-    }
-    grubbs.result <- grubbs.test(test)
-    pv <- grubbs.result$p.value
-    idx.outlier <- which(vector %in% outliers)
-    na.vect <- replace(vector, idx.outlier, NA)
-    
-  }
-  return(na.vect)
-}
-num <- ncol(data_diff)
-frag<- data_diff[,2:num]
-frag<- as.data.frame(frag)
-data_diff2<- as.data.frame(apply(frag,2,grubbs.flag))
-
-#calculate how  many NA
-na_count <-sapply(data_diff2, function(y) sum(length(which(is.na(y)))))
-na_count <- data.frame(na_count)
-
-data_diff2$Layout <- data_diff$Layout
-data_diff_gibbs <- data_diff2[complete.cases(data_diff2), ]
-```
-
-
-
 
 ```{r}
-
-data_stat <- data_diff_gibbs %>% 
+data_diff <- select(data_diff, - Well_positions)
+data_stat <- data_diff %>% 
             group_by(Layout) %>%
-            summarise_each(funs(mean(.), sd(.))) %>% ungroup()
+            summarise_each(funs(mean(.), sd(.))) %>%
+            ungroup()
 data_stat
 ```
-Take only mean data
+Take only mean data and calculate QY
 ```{r}
 data_mean <- data_stat %>% select(Layout, ends_with("_mean"))
+
 
 data_mean <- data_mean %>% 
   group_by(Layout) %>% 
   mutate(Q18=FL_18_mean/.$FL_18_mean[.$Layout == "ST1_1"]*.$Abs_18_mean[.$Layout == "ST1_1"]/Abs_18_mean,
-         #Q20=FL_20_mean/.$FL_20_mean[.$Layout == "ST1_1"]*.$Abs_20_mean[.$Layout == "ST1_1"]/Abs_20_mean,
-         #Q23=FL_23_mean/.$FL_23_mean[.$Layout == "ST1_1"]*.$Abs_23_mean[.$Layout == "ST1_1"]/Abs_23_mean,
          Q25=FL_25_mean/.$FL_25_mean[.$Layout == "ST1_1"]*.$Abs_25_mean[.$Layout == "ST1_1"]/Abs_25_mean,
-         #Q30=FL_30_mean/.$FL_30_mean[.$Layout == "ST1_1"]*.$Abs_30_mean[.$Layout == "ST1_1"]/Abs_30_mean,
          Q37=FL_37_mean/.$FL_37_mean[.$Layout == "ST1_1"]*.$Abs_37_mean[.$Layout == "ST1_1"]/Abs_37_mean,
          Q42=FL_42_mean/.$FL_42_mean[.$Layout == "ST1_1"]*.$Abs_42_mean[.$Layout == "ST1_1"]/Abs_42_mean
-         
          )
 
-data_mean
+#DELETE CONTROL 
+#data_mean <- data_mean[-6,]
+
+#select only Q
+data_Q <- data_mean %>% select(Layout, starts_with("Q"))
+data_Q
 ```
 
 
-QY calculated
 
+Multiply values by constants 
 ```{r}
-q <- data_mean %>% select(Layout, starts_with("Q"))
 c <- (1.3325^2)/(1.4385^2)
-t18 <- 18
-t20 <- 20
-t23<- 23
-t25 <- 25
-t30 <- 30
-t37 <- 37
-t42<- 42
 
-QY_t <- q %>% 
-  mutate(QY_T18= 0.0002*(2649.0219*t18^(-1.5448))^0.6019 ,
-         #QY_T20=0.0002*(2649.0219*t20^(-1.5448))^0.6019,
-         #QY_T23=0.0002*(2649.0219*t23^(-1.5448))^0.6019,
-         QY_T25=0.0002*(2649.0219*t25^(-1.5448))^0.6019,
-         #QY_T30=0.0002*(2649.0219*t30^(-1.5448))^0.6019,
-         QY_T37=0.0002*(2649.0219*t37^(-1.5448))^0.6019,
-         QY_T42=0.0002*(2649.0219*t42^(-1.5448))^0.6019
-         
-         )
+t18 <- 0.0002*(2649.0219*18.5^(-1.5448))^0.6019
+t25 <- 0.0002*(2649.0219*25.2^-1.5448)^0.6019
+t37 <- 0.0002*(2649.0219*37.4^-1.5448)^0.6019
+t42 <-  0.0002*(2649.0219*42.5^-1.5448)^0.6019
 
-vis <- QY_t %>% 
+t18
+t25
+t37
+t42
+
+#calculate viscosity
+data_Q2 <- data_Q %>% 
   group_by(Layout) %>% 
-  mutate(vis18=((Q18*QY_T18*c)/0.0002)^(1/0.6019),
-         #vis20=((Q20*QY_T20*c)/0.0002)^(1/0.6019),
-         #vis23=((Q23*QY_T23*c)/0.0002)^(1/0.6019),
-         vis25=((Q25*QY_T25*c)/0.0002)^(1/0.6019),
-         #vis30=((Q30*QY_T30*c)/0.0002)^(1/0.6019),
-         vis37=((Q37*QY_T37*c)/0.0002)^(1/0.6019),
-         vis42=((Q42*QY_T42*c)/0.0002)^(1/0.6019)
-         
+  mutate(vis18=((Q18*c*t18)/0.0002)^(1/0.6019),
+         vis25=((Q25*c*t25)/0.0002)^(1/0.6019),
+         vis37=((Q37*c*t37)/0.0002)^(1/0.6019),
+         vis42=((Q42*c*t42)/0.0002)^(1/0.6019)
          ) %>% ungroup()
-vis
+data_Q2
 ```
-Calculate an error
-```{r}
-errors<- merge(vis, data_stat)
 
-errors <- errors %>%
-  group_by(Layout) %>%
-  mutate(e18 = sqrt((.$FL_18_sd[.$Layout == "ST1_1"]/.$FL_18_mean[.$Layout == "ST1_1"])^2+(.$Abs_18_sd[.$Layout == "ST1_1"]/.$Abs_18_mean[.$Layout == "ST1_1"])^2+(FL_18_sd/FL_18_mean)^2+(Abs_18_sd/Abs_18_mean)^2)*vis18,
-         #e20 = sqrt((.$FL_20_sd[.$Layout == "ST1_1"]/.$FL_20_mean[.$Layout == "ST1_1"])^2+(.$Abs_20_sd[.$Layout == "ST1_1"]/.$Abs_20_mean[.$Layout == "ST1_1"])^2+(FL_20_sd/FL_20_mean)^2+(Abs_20_sd/Abs_20_mean)^2)*vis20,
-         #e23 = sqrt((.$FL_23_sd[.$Layout == "ST1_1"]/.$FL_23_mean[.$Layout == "ST1_1"])^2+(.$Abs_23_sd[.$Layout == "ST1_1"]/.$Abs_23_mean[.$Layout == "ST1_1"])^2+(FL_23_sd/FL_23_mean)^2+(Abs_23_sd/Abs_23_mean)^2)*vis23,
-         e25 = sqrt((.$FL_25_sd[.$Layout == "ST1_1"]/.$FL_25_mean[.$Layout == "ST1_1"])^2+(.$Abs_25_sd[.$Layout == "ST1_1"]/.$Abs_25_mean[.$Layout == "ST1_1"])^2+(FL_25_sd/FL_25_mean)^2+(Abs_25_sd/Abs_25_mean)^2)*vis25,
-         #e30 = sqrt((.$FL_30_sd[.$Layout == "ST1_1"]/.$FL_30_mean[.$Layout == "ST1_1"])^2+(.$Abs_30_sd[.$Layout == "ST1_1"]/.$Abs_30_mean[.$Layout == "ST1_1"])^2+(FL_30_sd/FL_30_mean)^2+(Abs_30_sd/Abs_30_mean)^2)*vis30,
-         e37 = sqrt((.$FL_37_sd[.$Layout == "ST1_1"]/.$FL_37_mean[.$Layout == "ST1_1"])^2+(.$Abs_37_sd[.$Layout == "ST1_1"]/.$Abs_37_mean[.$Layout == "ST1_1"])^2+(FL_37_sd/FL_37_mean)^2+(Abs_37_sd/Abs_37_mean)^2)*vis37,
-         e42 = sqrt((.$FL_42_sd[.$Layout == "ST1_1"]/.$FL_42_mean[.$Layout == "ST1_1"])^2+(.$Abs_42_sd[.$Layout == "ST1_1"]/.$Abs_42_mean[.$Layout == "ST1_1"])^2+(FL_42_sd/FL_42_mean)^2+(Abs_42_sd/Abs_42_mean)^2)*vis42
-         
+final data
+```{r}
+vis <- data_Q2 %>% select(Layout, starts_with("vis")) %>% ungroup()
+
+vis_gat <- final %>% gather(temp, val, -one_of("Layout"))
+```
+
+Error propagation 
+```{r}
+
+error <- join(data_stat, data_Q2) 
+
+error_calc <- error %>% 
+  group_by(Layout) %>% 
+  mutate(e18=((sqrt((FL_18_sd/FL_18_mean)^2+(FL_18_sd[.$Layout == "ST1_1"]/FL_18_mean[.$Layout == "ST1_1"])^2+(Abs_18_sd/Abs_18_mean)^2+(Abs_18_sd[.$Layout == "ST1_1"]/Abs_18_mean[.$Layout == "ST1_1"])^2)))*vis18,
+         e25=((sqrt((FL_25_sd/FL_25_mean)^2+(FL_25_sd[.$Layout == "ST1_1"]/FL_25_mean[.$Layout == "ST1_1"])^2+(Abs_25_sd/Abs_25_mean)^2+(Abs_25_sd[.$Layout == "ST1_1"]/Abs_25_mean[.$Layout == "ST1_1"])^2)))*vis25,
+         e37=((sqrt((FL_37_sd/FL_37_mean)^2+(FL_37_sd[.$Layout == "ST1_1"]/FL_37_mean[.$Layout == "ST1_1"])^2+(Abs_37_sd/Abs_37_mean)^2+(Abs_37_sd[.$Layout == "ST1_1"]/Abs_37_mean[.$Layout == "ST1_1"])^2)))*vis37,
+         e42=((sqrt((FL_42_sd/FL_42_mean)^2+(FL_42_sd[.$Layout == "ST1_1"]/FL_42_mean[.$Layout == "ST1_1"])^2+(Abs_42_sd/Abs_42_mean)^2+(Abs_42_sd[.$Layout == "ST1_1"]/Abs_42_mean[.$Layout == "ST1_1"])^2)))*vis42
          )
 
+errors<- error_calc %>% select(Layout, starts_with("e")) %>% ungroup()
+errors
 
-final <- errors %>% select("Layout", starts_with("vis"), starts_with("e"))
-final <- final %>% filter(!Layout == "ST1_1")
-final
+#*abs((1.3325^2)/(1.4385^2))*abs(Q18)
 ```
-
-https://gist.github.com/kdauria/524eade46135f6348140
+https://gist.github.com/kdauria/524eade46135f6348140 - function to add correlation factor
+https://stackoverflow.com/questions/7549694/adding-regression-line-equation-and-r2-on-graph
 ```{r}
 stat_smooth_func <- function(mapping = NULL, data = NULL,
                         geom = "smooth", position = "identity",
@@ -289,41 +242,44 @@ StatSmoothFunc <- ggproto("StatSmooth", Stat,
                       required_aes = c("x", "y")
 )
 
-
 ```
 
 
-Make a plot
+
+PLOT the data
 ```{r}
-final_gat <- final %>% gather(key, value, -Layout) %>%
-  extract(key, c("rep", "temp"), "([a-z]+)([0-9]+)") %>%
-  spread(rep, value)
+final <- join(vis, errors)
+#delete last column - ST1_1
+final <- final %>% filter(!(Layout == "ST1_1"))
+final_gat <- final %>%
+  gather(key, value, -Layout) %>%
+  extract(key, c("question", "temp"), "^([a-z]+)([0-9]+).*") %>%
+  spread(question, value) 
 
-final_gat$temp <- as.numeric(final_gat$temp) 
 
-ggplot(final_gat, aes(x = temp, y = vis, group = Layout, col = Layout)) +
-  geom_point() +
-  geom_errorbar(aes(ymin=vis-e,ymax=vis+e),width=.2) +
-  scale_y_log10() +
-  geom_point(size=3, shape=21, fill="white") + 
-  stat_smooth(method=lm, se = FALSE, linetype = "dashed", size = 0.2) +
+#final_gat$temp <- as.numeric(final_gat$temp)
+
+ggplot(final_gat, aes(x = as.numeric(temp), y = vis, group = Layout, col = Layout)) + 
+   geom_errorbar(aes(ymin =vis - e, ymax = vis +e), width=.1)+
+   scale_y_log10() +
+  geom_point(position=pd, size=3, shape=21, fill="white") + 
+   stat_smooth(method=lm, se = FALSE, linetype = "dashed", size = 0.2) +
   stat_smooth_func(geom="text",method="lm",hjust=0,parse=TRUE)+
+  #geom_point(aes(col = Layout)) +
   theme_bw()
 ```
-Kelvins
+
 ```{r}
 
-final_gat_K <- final_gat %>% mutate(K = (1000/(as.numeric(temp)+272.15)))
+final_gat_K <- final_gat %>% mutate(K = (1000/as.numeric(temp)+272.15))
 
 ggplot(final_gat_K, aes(x = K, y = vis, group = Layout, col = Layout)) + 
    geom_errorbar(aes(ymin =vis - e, ymax = vis +e), width=.1)+
-   #geom_line()+ 
+   geom_line()+ 
    scale_y_log10() +
-  geom_point(size=3, shape=21, fill="white") + 
-   stat_smooth(method=lm, se = FALSE, linetype = "dashed", size = 0.2) +
-  stat_smooth_func(geom="text",method="lm",hjust=0,parse=TRUE)+
   #geom_point(position=pd, size=3, shape=21, fill="white") + 
   #geom_point(aes(col = Layout)) +
   theme_bw()
-  
 ```
+
+
