@@ -6,7 +6,7 @@ title: "Plate Reader"
 Install the library
 ```{r}
 #install.packages("readxl")
-#install.packages("dyplyr")
+#install.packages("dplyr", dep = TRUE)
 #install.packages("stat_smooth")
 library(readxl)
 library(dplyr)
@@ -14,23 +14,35 @@ library(tidyr)
 library(ggplot2)
 library(data.table)
 library(outliers)
+library(gtools)
 
 ```
 
-Read the data - You may add "numeric" to col_types - depends how temp you have
+Read the data - make sure you delete the second row with temp - then you do not need to specify what type of the column you have
 ```{r}
-data <- read_excel("DaneDlaPaniMadzi.xlsx", col_types = c("text", "text", "numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric"))
+#data <- read_excel("DO-PEPCPG_4Cand30C.xlsx", col_types = c("text", "text", "numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric"))
+data <- read_excel("DO-PEPCPG_4Cand30C.xlsx")
+
 names(data) <- gsub(" ", "_", names(data))
 data
 ```
 We dont need the first row - delete
 ```{r}
-data <- data[-1,]
+#data <- data[-1,]
 #cols = c( 3, 4, 5,6,7,8,9,10) 
 #data[,cols] = apply(data[,cols], 2, function(x) as.numeric(as.character(x)))
+#data
+```
+
+
+sort the data base on Well_position
+```{r}
+data <- data[mixedorder(as.character(data$Well_positions)), ]
 data
 ```
 
+
+subtraction of the blank data
 ```{r}
 data_diff <-  data %>%
   group_by(grp = (row_number() - 1) %/% 2) %>%
@@ -74,15 +86,16 @@ data_diff2<- as.data.frame(apply(frag,2,grubbs.flag))
 
 #calculate how  many NA
 na_count <-sapply(data_diff2, function(y) sum(length(which(is.na(y)))))
-na_count <- data.frame(na_count)
+data.frame(na_count)
 
 data_diff2$Layout <- data_diff$Layout
 data_diff_gibbs <- data_diff2[complete.cases(data_diff2), ]
+data_diff_gibbs
 ```
 
 
 
-
+Calculate the mean and sd
 ```{r}
 
 data_stat <- data_diff_gibbs %>% 
@@ -90,17 +103,17 @@ data_stat <- data_diff_gibbs %>%
             summarise_each(funs(mean(.), sd(.))) %>% ungroup()
 data_stat
 ```
-Take only mean data
+Take only mean data + first calculation 
 ```{r}
 data_mean <- data_stat %>% select(Layout, ends_with("_mean"))
 
 data_mean <- data_mean %>% 
   group_by(Layout) %>% 
   mutate(Q18=FL_18_mean/.$FL_18_mean[.$Layout == "ST1_1"]*.$Abs_18_mean[.$Layout == "ST1_1"]/Abs_18_mean,
-         #Q20=FL_20_mean/.$FL_20_mean[.$Layout == "ST1_1"]*.$Abs_20_mean[.$Layout == "ST1_1"]/Abs_20_mean,
-         #Q23=FL_23_mean/.$FL_23_mean[.$Layout == "ST1_1"]*.$Abs_23_mean[.$Layout == "ST1_1"]/Abs_23_mean,
+         Q20=FL_20_mean/.$FL_20_mean[.$Layout == "ST1_1"]*.$Abs_20_mean[.$Layout == "ST1_1"]/Abs_20_mean,
+         Q23=FL_23_mean/.$FL_23_mean[.$Layout == "ST1_1"]*.$Abs_23_mean[.$Layout == "ST1_1"]/Abs_23_mean,
          Q25=FL_25_mean/.$FL_25_mean[.$Layout == "ST1_1"]*.$Abs_25_mean[.$Layout == "ST1_1"]/Abs_25_mean,
-         #Q30=FL_30_mean/.$FL_30_mean[.$Layout == "ST1_1"]*.$Abs_30_mean[.$Layout == "ST1_1"]/Abs_30_mean,
+         Q30=FL_30_mean/.$FL_30_mean[.$Layout == "ST1_1"]*.$Abs_30_mean[.$Layout == "ST1_1"]/Abs_30_mean,
          Q37=FL_37_mean/.$FL_37_mean[.$Layout == "ST1_1"]*.$Abs_37_mean[.$Layout == "ST1_1"]/Abs_37_mean,
          Q42=FL_42_mean/.$FL_42_mean[.$Layout == "ST1_1"]*.$Abs_42_mean[.$Layout == "ST1_1"]/Abs_42_mean
          
@@ -110,7 +123,7 @@ data_mean
 ```
 
 
-QY calculated
+QY and viscosity calculated
 
 ```{r}
 q <- data_mean %>% select(Layout, starts_with("Q"))
@@ -125,10 +138,10 @@ t42<- 42
 
 QY_t <- q %>% 
   mutate(QY_T18= 0.0002*(2649.0219*t18^(-1.5448))^0.6019 ,
-         #QY_T20=0.0002*(2649.0219*t20^(-1.5448))^0.6019,
-         #QY_T23=0.0002*(2649.0219*t23^(-1.5448))^0.6019,
+         QY_T20=0.0002*(2649.0219*t20^(-1.5448))^0.6019,
+         QY_T23=0.0002*(2649.0219*t23^(-1.5448))^0.6019,
          QY_T25=0.0002*(2649.0219*t25^(-1.5448))^0.6019,
-         #QY_T30=0.0002*(2649.0219*t30^(-1.5448))^0.6019,
+         QY_T30=0.0002*(2649.0219*t30^(-1.5448))^0.6019,
          QY_T37=0.0002*(2649.0219*t37^(-1.5448))^0.6019,
          QY_T42=0.0002*(2649.0219*t42^(-1.5448))^0.6019
          
@@ -137,10 +150,10 @@ QY_t <- q %>%
 vis <- QY_t %>% 
   group_by(Layout) %>% 
   mutate(vis18=((Q18*QY_T18*c)/0.0002)^(1/0.6019),
-         #vis20=((Q20*QY_T20*c)/0.0002)^(1/0.6019),
-         #vis23=((Q23*QY_T23*c)/0.0002)^(1/0.6019),
+         vis20=((Q20*QY_T20*c)/0.0002)^(1/0.6019),
+         vis23=((Q23*QY_T23*c)/0.0002)^(1/0.6019),
          vis25=((Q25*QY_T25*c)/0.0002)^(1/0.6019),
-         #vis30=((Q30*QY_T30*c)/0.0002)^(1/0.6019),
+         vis30=((Q30*QY_T30*c)/0.0002)^(1/0.6019),
          vis37=((Q37*QY_T37*c)/0.0002)^(1/0.6019),
          vis42=((Q42*QY_T42*c)/0.0002)^(1/0.6019)
          
@@ -154,10 +167,10 @@ errors<- merge(vis, data_stat)
 errors <- errors %>%
   group_by(Layout) %>%
   mutate(e18 = sqrt((.$FL_18_sd[.$Layout == "ST1_1"]/.$FL_18_mean[.$Layout == "ST1_1"])^2+(.$Abs_18_sd[.$Layout == "ST1_1"]/.$Abs_18_mean[.$Layout == "ST1_1"])^2+(FL_18_sd/FL_18_mean)^2+(Abs_18_sd/Abs_18_mean)^2)*vis18,
-         #e20 = sqrt((.$FL_20_sd[.$Layout == "ST1_1"]/.$FL_20_mean[.$Layout == "ST1_1"])^2+(.$Abs_20_sd[.$Layout == "ST1_1"]/.$Abs_20_mean[.$Layout == "ST1_1"])^2+(FL_20_sd/FL_20_mean)^2+(Abs_20_sd/Abs_20_mean)^2)*vis20,
-         #e23 = sqrt((.$FL_23_sd[.$Layout == "ST1_1"]/.$FL_23_mean[.$Layout == "ST1_1"])^2+(.$Abs_23_sd[.$Layout == "ST1_1"]/.$Abs_23_mean[.$Layout == "ST1_1"])^2+(FL_23_sd/FL_23_mean)^2+(Abs_23_sd/Abs_23_mean)^2)*vis23,
+         e20 = sqrt((.$FL_20_sd[.$Layout == "ST1_1"]/.$FL_20_mean[.$Layout == "ST1_1"])^2+(.$Abs_20_sd[.$Layout == "ST1_1"]/.$Abs_20_mean[.$Layout == "ST1_1"])^2+(FL_20_sd/FL_20_mean)^2+(Abs_20_sd/Abs_20_mean)^2)*vis20,
+         e23 = sqrt((.$FL_23_sd[.$Layout == "ST1_1"]/.$FL_23_mean[.$Layout == "ST1_1"])^2+(.$Abs_23_sd[.$Layout == "ST1_1"]/.$Abs_23_mean[.$Layout == "ST1_1"])^2+(FL_23_sd/FL_23_mean)^2+(Abs_23_sd/Abs_23_mean)^2)*vis23,
          e25 = sqrt((.$FL_25_sd[.$Layout == "ST1_1"]/.$FL_25_mean[.$Layout == "ST1_1"])^2+(.$Abs_25_sd[.$Layout == "ST1_1"]/.$Abs_25_mean[.$Layout == "ST1_1"])^2+(FL_25_sd/FL_25_mean)^2+(Abs_25_sd/Abs_25_mean)^2)*vis25,
-         #e30 = sqrt((.$FL_30_sd[.$Layout == "ST1_1"]/.$FL_30_mean[.$Layout == "ST1_1"])^2+(.$Abs_30_sd[.$Layout == "ST1_1"]/.$Abs_30_mean[.$Layout == "ST1_1"])^2+(FL_30_sd/FL_30_mean)^2+(Abs_30_sd/Abs_30_mean)^2)*vis30,
+         e30 = sqrt((.$FL_30_sd[.$Layout == "ST1_1"]/.$FL_30_mean[.$Layout == "ST1_1"])^2+(.$Abs_30_sd[.$Layout == "ST1_1"]/.$Abs_30_mean[.$Layout == "ST1_1"])^2+(FL_30_sd/FL_30_mean)^2+(Abs_30_sd/Abs_30_mean)^2)*vis30,
          e37 = sqrt((.$FL_37_sd[.$Layout == "ST1_1"]/.$FL_37_mean[.$Layout == "ST1_1"])^2+(.$Abs_37_sd[.$Layout == "ST1_1"]/.$Abs_37_mean[.$Layout == "ST1_1"])^2+(FL_37_sd/FL_37_mean)^2+(Abs_37_sd/Abs_37_mean)^2)*vis37,
          e42 = sqrt((.$FL_42_sd[.$Layout == "ST1_1"]/.$FL_42_mean[.$Layout == "ST1_1"])^2+(.$Abs_42_sd[.$Layout == "ST1_1"]/.$Abs_42_mean[.$Layout == "ST1_1"])^2+(FL_42_sd/FL_42_mean)^2+(Abs_42_sd/Abs_42_mean)^2)*vis42
          
@@ -168,7 +181,7 @@ final <- errors %>% select("Layout", starts_with("vis"), starts_with("e"))
 final <- final %>% filter(!Layout == "ST1_1")
 final
 ```
-
+Function to get the correlation equation
 https://gist.github.com/kdauria/524eade46135f6348140
 ```{r}
 stat_smooth_func <- function(mapping = NULL, data = NULL,
@@ -304,26 +317,66 @@ final_gat$temp <- as.numeric(final_gat$temp)
 ggplot(final_gat, aes(x = temp, y = vis, group = Layout, col = Layout)) +
   geom_point() +
   geom_errorbar(aes(ymin=vis-e,ymax=vis+e),width=.2) +
-  scale_y_log10() +
-  geom_point(size=3, shape=21, fill="white") + 
-  stat_smooth(method=lm, se = FALSE, linetype = "dashed", size = 0.2) +
+  scale_y_log10(breaks = scales::trans_breaks("log10", function(x) 10^x),
+                labels = scales::trans_format("log10", scales::math_format(10^.x))) +
+  geom_point(aes(shape = Layout),size=2, fill="white") + 
+  geom_smooth(method = "lm", se = FALSE, linetype = "dashed", size = 0.2) +
+  #stat_smooth(method=lm, se = FALSE, linetype = "dashed", size = 0.2) +
   stat_smooth_func(geom="text",method="lm",hjust=0,parse=TRUE)+
-  theme_bw()
+  theme_bw() +
+  annotation_logticks(sides = "lr") 
 ```
+
+http://ggplot.yhathq.com/docs/scale_y_log10.html
+
 Kelvins
 ```{r}
 
-final_gat_K <- final_gat %>% mutate(K = (1000/(as.numeric(temp)+272.15)))
+final_gat_K <- final_gat %>% 
+                mutate(Kel = (1000/(as.numeric(temp)+272.15)))
 
-ggplot(final_gat_K, aes(x = K, y = vis, group = Layout, col = Layout)) + 
-   geom_errorbar(aes(ymin =vis - e, ymax = vis +e), width=.1)+
+P <- ggplot(final_gat_K, aes(x = Kel, y = vis, group = Layout, col = Layout)) + 
+   geom_errorbar(aes(ymin =vis - e, ymax = vis +e), width=.02)+
    #geom_line()+ 
-   scale_y_log10() +
-  geom_point(size=3, shape=21, fill="white") + 
-   stat_smooth(method=lm, se = FALSE, linetype = "dashed", size = 0.2) +
+   scale_y_log10(breaks = scales::trans_breaks("log10", function(x) 10^x),
+                labels = scales::trans_format("log10", scales::math_format(10^.x))) +
+  geom_point(aes(shape = Layout), size=3, fill="white") + 
+  stat_smooth(method=lm, se = FALSE, linetype = "dashed", size = 0.2) +
   stat_smooth_func(geom="text",method="lm",hjust=0,parse=TRUE)+
   #geom_point(position=pd, size=3, shape=21, fill="white") + 
   #geom_point(aes(col = Layout)) +
-  theme_bw()
-  
+  theme_bw() +
+  annotation_logticks(sides = "lr") 
+
+P
+
+
+
+```
+
+
+
+Weird stuff Grzesiek wants..
+```{r}
+
+ea_cal<- as.data.frame(final_gat_K)
+mod <- lm(vis ~ Kel, data = ea_cal)
+
+ eq <- substitute(italic(y) == a + b %.% italic(x)*","~~italic(r)^2~"="~r2, 
+                                         list(a = format(coef(m)[1], digits = 3), 
+                                              b = format(coef(m)[2], digits = 3), 
+                                              r2 = format(summary(m)$r.squared, digits = 3)))
+
+eq
+Ea <- ea_cal %>%
+  group_by(Layout) %>%
+  #do(data.frame(Coef = coef(lm(vis ~ temp, data=.))))
+  do({
+      mod = lm(vis ~ temp, data = .)
+      data.frame(Intercept = coef(mod)[1],
+                 Slope = coef(mod)[2],
+                R = summary(mod)$r.squared)
+    }) %>%
+  mutate(Ea = -(8.14 * Slope))
+Ea
 ```
