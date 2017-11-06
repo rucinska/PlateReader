@@ -324,6 +324,7 @@ ggplot(final_gat, aes(x = temp, y = vis, group = Layout, col = Layout)) +
   #stat_smooth(method=lm, se = FALSE, linetype = "dashed", size = 0.2) +
   stat_smooth_func(geom="text",method="lm",hjust=0,parse=TRUE)+
   theme_bw() +
+  labs(x = "Temp in C", y = "Viscosity") +
   annotation_logticks(sides = "lr") 
 ```
 
@@ -346,6 +347,8 @@ P <- ggplot(final_gat_K, aes(x = Kel, y = vis, group = Layout, col = Layout)) +
   #geom_point(position=pd, size=3, shape=21, fill="white") + 
   #geom_point(aes(col = Layout)) +
   theme_bw() +
+  #change names of axes!
+  labs(x = "Temp in K", y = "Viscosity") +
   annotation_logticks(sides = "lr") 
 
 P
@@ -360,19 +363,19 @@ Weird stuff Grzesiek wants..
 ```{r}
 
 ea_cal<- as.data.frame(final_gat_K)
-mod <- lm(vis ~ Kel, data = ea_cal)
+#mod <- lm(log10(vis) ~ Kel, data = ea_cal)
 
- eq <- substitute(italic(y) == a + b %.% italic(x)*","~~italic(r)^2~"="~r2, 
-                                         list(a = format(coef(m)[1], digits = 3), 
-                                              b = format(coef(m)[2], digits = 3), 
-                                              r2 = format(summary(m)$r.squared, digits = 3)))
+ #eq <- substitute(italic(y) == a + b %.% italic(x)*","~~italic(r)^2~"="~r2, 
+  #                                       list(a = format(coef(mod)[1], digits = 3), 
+  #                                            b = format(coef(mod)[2], digits = 3), 
+  #                                            r2 = format(summary(mod)$r.squared, digits = 3)))
 
-eq
+#eq
 Ea <- ea_cal %>%
   group_by(Layout) %>%
   #do(data.frame(Coef = coef(lm(vis ~ temp, data=.))))
   do({
-      mod = lm(vis ~ temp, data = .)
+      mod = lm(log10(vis) ~ Kel, data = .)
       data.frame(Intercept = coef(mod)[1],
                  Slope = coef(mod)[2],
                 R = summary(mod)$r.squared)
